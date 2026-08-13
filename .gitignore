@@ -1,0 +1,39 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build output
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# environment
+.env
+.env.*
+!.env.example
+
+# prisma
+prisma/generated/
+
+# testing
+coverage/
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# editors / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# personal Russian-language study notes — not part of the public documentation
+notes/
+
+# personal AI workflow tooling (CLAUDE.md itself stays tracked)
+.claude/
