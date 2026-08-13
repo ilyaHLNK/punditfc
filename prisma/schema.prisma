@@ -1,0 +1,302 @@
+// PunditFC — database schema (draft for review)
+//
+// Design notes live in docs/db-design.md. Every unique constraint and index
+// here exists for a stated reason; do not remove one without reading that file.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Accounts
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique
+  passwordHash String
+  displayName  String
+  isDemo       Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships   PoolMembership[]
+  predictions   Prediction[]
+  standings     PoolStanding[]
+  refreshTokens RefreshToken[]
+
+  @@map("users")
+}
+
+// Refresh tokens are stored hashed so a database leak cannot be replayed.
+// Rotation: each use revokes the old token and issues a new one.
+model RefreshToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// ---------------------------------------------------------------------------
+// Professional football — written only by the sync worker
+// ---------------------------------------------------------------------------
+
+enum CompetitionSource {
+  EXTERNAL // mirrored from football-data.org
+  LOCAL // user-managed amateur competition (v2, see ADR-0003)
+}
+
+model Competition {
+  id         String            @id @default(uuid()) @db.Uuid
+  externalId Int?              @unique // provider id, null for LOCAL
+  source     CompetitionSource @default(EXTERNAL)
+  name       String
+  code       String            @unique // "PL", "PD", …
+  country    String
+  emblemUrl  String?
+  createdAt  DateTime          @default(now())
+
+  seasons Season[]
+
+  @@map("competitions")
+}
+
+model Season {
+  id            String   @id @default(uuid()) @db.Uuid
+  competitionId String   @db.Uuid
+  externalId    Int?     @unique
+  label         String // "2026/27"
+  startDate     DateTime @db.Date
+  endDate       DateTime @db.Date
+  isCurrent     Boolean  @default(false)
+
+  competition Competition  @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  matches     Match[]
+  pools       PoolSeason[]
+
+  @@unique([competitionId, label])
+  @@index([competitionId, isCurrent])
+  @@map("seasons")
+}
+
+model Team {
+  id         String  @id @default(uuid()) @db.Uuid
+  externalId Int?    @unique
+  name       String
+  shortName  String
+  tla        String // three-letter abbreviation, e.g. "ARS"
+  crestUrl   String?
+
+  homeMatches Match[] @relation("HomeTeam")
+  awayMatches Match[] @relation("AwayTeam")
+
+  @@map("teams")
+}
+
+enum MatchStatus {
+  SCHEDULED
+  IN_PLAY
+  PAUSED
+  FINISHED
+  POSTPONED
+  CANCELLED
+}
+
+// Guards the scoring transition; see ADR-0004.
+enum ScoringStatus {
+  PENDING
+  IN_PROGRESS
+  SCORED
+}
+
+model Match {
+  id         String @id @default(uuid()) @db.Uuid
+  externalId Int?   @unique
+  seasonId   String @db.Uuid
+  matchday   Int
+
+  homeTeamId String @db.Uuid
+  awayTeamId String @db.Uuid
+
+  // kickoffAt is the prediction deadline. Always compared against database
+  // time on the server — never against a client-supplied timestamp.
+  kickoffAt DateTime
+
+  status        MatchStatus   @default(SCHEDULED)
+  scoringStatus ScoringStatus @default(PENDING)
+
+  homeGoals Int?
+  awayGoals Int?
+
+  lastSyncedAt DateTime?
+  scoredAt     DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  season      Season       @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  homeTeam    Team         @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeam    Team         @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  predictions Prediction[]
+
+  // Fixture list for a matchday — the most frequent read in the app.
+  @@index([seasonId, matchday])
+  // Drives both the sync scheduler and the "upcoming fixtures" query.
+  @@index([status, kickoffAt])
+  // Lets the scoring job find work without a full scan.
+  @@index([scoringStatus, status])
+  @@map("matches")
+}
+
+// ---------------------------------------------------------------------------
+// Prediction game — written only by users
+// ---------------------------------------------------------------------------
+
+enum PoolRole {
+  OWNER
+  MEMBER
+}
+
+model Pool {
+  id         String @id @default(uuid()) @db.Uuid
+  name       String
+  inviteCode String @unique // short, URL-safe, regenerable
+  maxMembers Int    @default(50)
+
+  // A member may pick at most this many matches per gameweek. null = unlimited.
+  // Default 3: with ~35 fixtures a week this turns prediction into a choice
+  // instead of a chore. Picking fewer, or none, is always allowed.
+  maxPicksPerGameweek Int? @default(3)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  seasons     PoolSeason[]
+  memberships PoolMembership[]
+  predictions Prediction[]
+  standings   PoolStanding[]
+
+  @@map("pools")
+}
+
+// A pool subscribes to one or more seasons: "we play La Liga and Serie A".
+// Many-to-many because the alternative — one pool per competition — would
+// force friends to keep several leaderboards.
+model PoolSeason {
+  poolId   String @db.Uuid
+  seasonId String @db.Uuid
+
+  pool   Pool   @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  season Season @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+
+  @@id([poolId, seasonId])
+  @@index([seasonId])
+  @@map("pool_seasons")
+}
+
+model PoolMembership {
+  id       String   @id @default(uuid()) @db.Uuid
+  poolId   String   @db.Uuid
+  userId   String   @db.Uuid
+  role     PoolRole @default(MEMBER)
+  joinedAt DateTime @default(now())
+
+  pool Pool @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Makes double-join impossible at the storage layer rather than in a
+  // check-then-insert that races.
+  @@unique([poolId, userId])
+  @@index([userId])
+  @@map("pool_memberships")
+}
+
+// Markets implemented in v1: EXACT_SCORE, MATCH_RESULT, TOTAL_GOALS.
+// The rest are modelled now and implemented after the MVP ships (ADR-0005).
+enum PredictionMarket {
+  EXACT_SCORE // "2:1"
+  MATCH_RESULT // home / draw / away
+  TOTAL_GOALS // over / under 2.5
+  BOTH_TEAMS_SCORE // yes / no
+  HALF_TIME_RESULT // home / draw / away at the break
+  GOAL_DIFFERENCE // winning margin
+}
+
+model Prediction {
+  id      String           @id @default(uuid()) @db.Uuid
+  poolId  String           @db.Uuid
+  userId  String           @db.Uuid
+  matchId String           @db.Uuid
+  market  PredictionMarket
+
+  // Shape depends on `market` — { homeGoals, awayGoals } for EXACT_SCORE,
+  // { result: "HOME" } for MATCH_RESULT, and so on. Validated by a zod schema
+  // per market in packages/contracts; see ADR-0005 for why this is stored as
+  // JSON rather than as typed columns.
+  selection Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  pool  Pool             @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  user  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  match Match            @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  score PredictionScore?
+
+  // The core invariant: one bet per member per match. The market is a column,
+  // not part of the key — choosing which question to answer is the game, so
+  // "one bet per match" is enforced by the database rather than by a service.
+  @@unique([poolId, userId, matchId])
+  // Scoring job: "all predictions in every pool for this match".
+  @@index([matchId])
+  // Personal history, and counting picks against the gameweek quota.
+  @@index([poolId, userId])
+  @@map("predictions")
+}
+
+// Recomputed and overwritten on every scoring run — never incremented.
+// Markets are binary: the selection is either right or wrong, and each market
+// carries its own point value. See ADR-0005.
+model PredictionScore {
+  predictionId String   @id @db.Uuid
+  points       Int
+  isHit        Boolean
+  computedAt   DateTime @default(now())
+
+  prediction Prediction @relation(fields: [predictionId], references: [id], onDelete: Cascade)
+
+  @@map("prediction_scores")
+}
+
+// Derived aggregate, rebuilt by the scoring job after each match.
+// Exists so the leaderboard is a single indexed read instead of a join and
+// SUM across every prediction in the pool.
+model PoolStanding {
+  poolId String @db.Uuid
+  userId String @db.Uuid
+
+  totalPoints     Int @default(0)
+  exactScoreHits  Int @default(0) // tie-breaker and a stat worth showing
+  totalHits       Int @default(0)
+  predictionsMade Int @default(0)
+
+  updatedAt DateTime @updatedAt
+
+  pool Pool @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([poolId, userId])
+  @@index([poolId, totalPoints(sort: Desc)])
+  @@map("pool_standings")
+}
