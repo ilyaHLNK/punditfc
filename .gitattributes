@@ -1,0 +1,21 @@
+# Line endings are LF in the repository and in the working tree, on every OS.
+# Without this, files checked out on Windows get CRLF, and any shell script or
+# entrypoint copied into a Linux container fails with a confusing
+# "bad interpreter" error.
+* text=auto eol=lf
+
+# Explicit for the files where CRLF is fatal rather than merely annoying.
+*.sh        text eol=lf
+Dockerfile  text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+
+# Never touched by normalisation.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.woff  binary
+*.woff2 binary
+*.pdf   binary
