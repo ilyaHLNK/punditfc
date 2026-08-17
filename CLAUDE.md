@@ -16,16 +16,16 @@ and explainability matter more than feature count.
 
 ## Documents
 
-| File | Purpose |
-| --- | --- |
-| `docs/scope.md` | What is in v1 and what is deliberately not |
-| `docs/db-design.md` | Schema rationale, invariants, indexes |
-| `docs/adr/0001-tech-stack.md` | Stack choice |
-| `docs/adr/0002-database-and-orm.md` | PostgreSQL and Prisma |
-| `docs/adr/0003-domain-model.md` | Competition vs Pool, forward compatibility |
-| `docs/adr/0004-background-jobs.md` | BullMQ, idempotency, rate limits |
-| `docs/adr/0005-prediction-markets.md` | Markets, binary scoring, no odds |
-| `docs/adr/0006-repository-layout.md` | Monorepo vs polyrepo, why not micro-frontends |
+| File                                  | Purpose                                       |
+| ------------------------------------- | --------------------------------------------- |
+| `docs/scope.md`                       | What is in v1 and what is deliberately not    |
+| `docs/db-design.md`                   | Schema rationale, invariants, indexes         |
+| `docs/adr/0001-tech-stack.md`         | Stack choice                                  |
+| `docs/adr/0002-database-and-orm.md`   | PostgreSQL and Prisma                         |
+| `docs/adr/0003-domain-model.md`       | Competition vs Pool, forward compatibility    |
+| `docs/adr/0004-background-jobs.md`    | BullMQ, idempotency, rate limits              |
+| `docs/adr/0005-prediction-markets.md` | Markets, binary scoring, no odds              |
+| `docs/adr/0006-repository-layout.md`  | Monorepo vs polyrepo, why not micro-frontends |
 
 `notes/` holds Russian-language study notes for the author. It is gitignored on
 purpose: the public repository stays English-only, while backend concepts new to
@@ -82,6 +82,21 @@ docs/
 6. **Validation at the boundary.** Every endpoint validates input.
 7. **Secrets come from the environment.** Nothing sensitive in the repo.
 
+## Environment notes — read before debugging setup
+
+- **Prisma 7.** The connection string lives in `prisma.config.ts`, not in
+  `schema.prisma`. Prisma no longer loads `.env` implicitly — `import
+"dotenv/config"` in the config file does it. The generator is `prisma-client`
+  with a required `output`; import the client from `prisma/generated/client`,
+  never from `@prisma/client`.
+- **Postgres is on host port 5434**, because 5432 and 5433 are occupied on the
+  author's machine. Inside the compose network it is still `postgres:5432`.
+- **pnpm blocks dependency build scripts.** Approvals live in
+  `pnpm-workspace.yaml` under `allowBuilds`, each with a comment saying why.
+  Never approve one without a reason.
+- **`.env` is local only.** When `.env.example` changes, `.env` must be updated
+  by hand.
+
 ## Conventions
 
 - Code, comments, identifiers and documentation: **English**.
@@ -106,9 +121,13 @@ docs/
 
 - [x] Scope agreed
 - [x] Stack chosen
-- [x] Database schema drafted (`prisma/schema.prisma`) — **awaiting review**
-- [ ] Repository scaffolding
-- [ ] Docker Compose
+- [x] Database schema designed and migrated (`prisma/schema.prisma`)
+- [x] Repository scaffolding — pnpm workspace, tsconfig, prettier, husky,
+      commitlint
+- [x] Docker Compose — postgres on host port **5434**, redis on 6379
+- [ ] `packages/contracts` and `packages/scoring`
+- [ ] NestJS api skeleton with a health endpoint
+- [ ] Next.js web skeleton
 - [ ] Auth
 - [ ] Fixture sync
 - [ ] Pools and invites

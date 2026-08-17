@@ -3,13 +3,18 @@
 // Design notes live in docs/db-design.md. Every unique constraint and index
 // here exists for a stated reason; do not remove one without reading that file.
 
+// Prisma 7 deprecated `prisma-client-js` and made `output` required: the client
+// is generated into the project instead of into node_modules. Import it from
+// `prisma/generated/client`, not from `@prisma/client`.
+// The generated directory is gitignored — it is build output, not source.
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "./generated/client"
 }
 
+// The connection string lives in prisma.config.ts as of Prisma 7.
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 // ---------------------------------------------------------------------------
