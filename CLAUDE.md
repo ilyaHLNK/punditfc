@@ -81,6 +81,12 @@ docs/
 5. **No `any`.** No silent `catch`. No commented-out code on `main`.
 6. **Validation at the boundary.** Every endpoint validates input.
 7. **Secrets come from the environment.** Nothing sensitive in the repo.
+8. **No process-local state.** Anything that must survive a restart or be shared
+   between instances lives in PostgreSQL or Redis — never in a module variable,
+   a `Map`, or an in-memory counter. This includes rate-limit buckets, caches
+   and quota counters. Production runs a single instance on the free tier, so
+   this class of bug stays invisible until it is expensive; the rule is enforced
+   at review time, not discovered in production.
 
 ## Environment notes — read before debugging setup
 

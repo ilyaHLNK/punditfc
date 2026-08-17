@@ -31,14 +31,14 @@ point value. Full rationale in [ADR-0005](adr/0005-prediction-markets.md).
 **One bet per match**, chosen from the markets available. Point values are
 balanced so that expected value is comparable and only the variance differs.
 
-| Market | Points | v1 |
-| --- | --- | --- |
-| Exact score | 10 | yes |
-| Match result (home / draw / away) | 2 | yes |
-| Total goals over/under 2.5 | 2 | yes |
-| Both teams to score | 2 | modelled, ships later |
-| Half-time result | 3 | modelled, ships later |
-| Goal difference | 4 | modelled, ships later |
+| Market                            | Points | v1                    |
+| --------------------------------- | ------ | --------------------- |
+| Exact score                       | 10     | yes                   |
+| Match result (home / draw / away) | 2      | yes                   |
+| Total goals over/under 2.5        | 2      | yes                   |
+| Both teams to score               | 2      | modelled, ships later |
+| Half-time result                  | 3      | modelled, ships later |
+| Goal difference                   | 4      | modelled, ships later |
 
 Markets that need match events (first team to score, scorers, cards) are
 impossible on the free data tier and are not planned.
@@ -49,12 +49,14 @@ editing existing code.
 ## In scope
 
 ### Accounts
+
 - Email + password registration, login, logout.
 - Password hashing with argon2.
 - JWT access token + refresh token rotation.
 - Demo account with a one-click login (seeded data).
 
 ### Competitions (read-only, synced)
+
 - Four competitions in v1: Premier League, La Liga, Serie A, Bundesliga.
 - Teams, fixtures, kickoff times, half-time and full-time scores.
 - Scheduled sync from football-data.org.
@@ -62,6 +64,7 @@ editing existing code.
   matchday, because matchday numbers do not line up across competitions.
 
 ### Pools
+
 - Create a pool and choose which competitions it plays.
 - Join via invite code.
 - Roles: `OWNER`, `MEMBER`.
@@ -69,6 +72,7 @@ editing existing code.
 - List of pools the current user belongs to.
 
 ### Predictions
+
 - Submit / update a prediction until kickoff: pick a match, answer one market.
 - **Predictions are optional** — a skipped match simply scores nothing.
 - Per-pool cap of picks per gameweek (`maxPicksPerGameweek`, default 3),
@@ -78,22 +82,28 @@ editing existing code.
 - Other members' predictions are hidden until kickoff.
 
 ### Scoring & leaderboard
+
 - Background job fetches finished matches and awards points.
 - Job is idempotent and safe to re-run (handles score corrections).
 - Pool leaderboard with rank, total points, and a breakdown by hit type.
 - Personal prediction history.
 
 ### Notifications
+
 - Email reminder when a matchday deadline is near and predictions are missing.
 
 ### Cross-cutting
+
 - Request validation on every endpoint (zod / class-validator).
 - Consistent error envelope and global exception filter.
 - Structured logging with request correlation ids.
 - OpenAPI docs published at `/api/docs`.
-- Rate limiting on auth endpoints.
+- Rate limiting on auth endpoints, backed by Redis rather than process memory.
+- Graceful shutdown: on `SIGTERM` the API stops accepting requests and the
+  worker finishes the job in flight before exiting.
 
 ### Delivery
+
 - Docker Compose for local development (api, worker, postgres, redis).
 - GitHub Actions: lint, typecheck, test, build on every PR.
 - Two environments: `staging` (from `develop`) and `production` (from `main`).
@@ -103,7 +113,7 @@ editing existing code.
 
 ## Out of scope for v1
 
-Recorded so we can say *no* quickly, and so the README can list them honestly as
+Recorded so we can say _no_ quickly, and so the README can list them honestly as
 future work.
 
 - Amateur / user-managed competitions with manual result entry (v2 — see
@@ -121,12 +131,12 @@ future work.
 
 ## Timeline (4 weeks, ~20-25 h/week)
 
-| Week | Goal | Definition of done |
-| --- | --- | --- |
-| 1 | Foundation | Repo, Docker Compose, Postgres + Prisma, schema and migrations, auth, CI green, **empty app deployed to staging and production** |
-| 2 | Domain | Competition sync from external API, pools, invites, membership, frontend shell with real data |
-| 3 | Core value | Predictions with deadline enforcement, scoring engine, BullMQ worker, leaderboard |
-| 4 | Production polish | Email reminders, tests on the scoring engine, OpenAPI, seed + demo login, README, screenshots, final deploy |
+| Week | Goal              | Definition of done                                                                                                               |
+| ---- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | Foundation        | Repo, Docker Compose, Postgres + Prisma, schema and migrations, auth, CI green, **empty app deployed to staging and production** |
+| 2    | Domain            | Competition sync from external API, pools, invites, membership, frontend shell with real data                                    |
+| 3    | Core value        | Predictions with deadline enforcement, scoring engine, BullMQ worker, leaderboard                                                |
+| 4    | Production polish | Email reminders, tests on the scoring engine, OpenAPI, seed + demo login, README, screenshots, final deploy                      |
 
 Deploying in week 1 is deliberate: projects that leave deployment until the end
 usually never get deployed.
