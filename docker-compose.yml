@@ -1,0 +1,51 @@
+# Local development infrastructure.
+#
+# Only stateful services live here for now: the application processes run on the
+# host with hot reload, which is a much faster loop than rebuilding an image on
+# every change. Dockerfiles for api and worker arrive when we deploy.
+#
+# Image majors are pinned to match production (Neon runs PostgreSQL 17), so a
+# query that works locally behaves the same way in production.
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: punditfc-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: punditfc
+      POSTGRES_PASSWORD: punditfc
+      POSTGRES_DB: punditfc
+    ports:
+      # host:container. 5432 and 5433 are both taken on the author's machine by
+      # another PostgreSQL, so the host side is 5434. The container side never
+      # changes — inside the compose network the service is postgres:5432.
+      - "5434:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U punditfc -d punditfc"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: punditfc-redis
+    restart: unless-stopped
+    # appendonly keeps the queue alive across restarts; losing enqueued jobs on
+    # a laptop reboot would make local debugging confusing.
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres-data:
+  redis-data:

@@ -1,0 +1,11 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+# pnpm blocks postinstall scripts by default as a supply-chain measure.
+# Prisma genuinely needs its own: the postinstall fetches the query engine
+# binary and generates the client. Approved deliberately, not blindly.
+allowBuilds:
+  "@prisma/engines": true
+  # esbuild (via tsx) installs a platform-specific native binary in postinstall.
+  esbuild: true
+  prisma: true

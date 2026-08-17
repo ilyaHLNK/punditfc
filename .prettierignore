@@ -1,0 +1,10 @@
+node_modules/
+dist/
+build/
+.next/
+coverage/
+pnpm-lock.yaml
+prisma/migrations/
+
+# Prisma has its own formatter: pnpm format:prisma
+*.prisma
