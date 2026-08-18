@@ -28,14 +28,14 @@ selection Json
 
 Six markets are defined in the enum; three are implemented in v1:
 
-| Market | Selection | Points | v1 |
-| --- | --- | --- | --- |
-| `EXACT_SCORE` | `{ homeGoals, awayGoals }` | 10 | yes |
-| `MATCH_RESULT` | `{ result: HOME \| DRAW \| AWAY }` | 2 | yes |
-| `TOTAL_GOALS` | `{ direction: OVER \| UNDER, line: 2.5 }` | 2 | yes |
-| `BOTH_TEAMS_SCORE` | `{ value: boolean }` | 2 | later |
-| `HALF_TIME_RESULT` | `{ result: HOME \| DRAW \| AWAY }` | 3 | later |
-| `GOAL_DIFFERENCE` | `{ margin: number }` | 4 | later |
+| Market             | Selection                                 | Points | v1    |
+| ------------------ | ----------------------------------------- | ------ | ----- |
+| `EXACT_SCORE`      | `{ homeGoals, awayGoals }`                | 10     | yes   |
+| `MATCH_RESULT`     | `{ result: HOME \| DRAW \| AWAY }`        | 2      | yes   |
+| `TOTAL_GOALS`      | `{ direction: OVER \| UNDER, line: 2.5 }` | 2      | yes   |
+| `BOTH_TEAMS_SCORE` | `{ value: boolean }`                      | 2      | later |
+| `HALF_TIME_RESULT` | `{ result: HOME \| DRAW \| AWAY }`        | 3      | later |
+| `GOAL_DIFFERENCE`  | `{ margin: number }`                      | 4      | later |
 
 **Markets are binary.** A selection is either right or wrong, and each market
 carries its own point value. The earlier graded scheme (5 for the exact score,
@@ -53,11 +53,11 @@ scheme, `MATCH_RESULT` dominated: roughly 50% × 2 = 1.0 expected points against
 anything else and the "choice" would be decorative. Values are set so expected
 value is comparable and **variance** is what differs:
 
-| Market | Rough hit rate | Points | Expected |
-| --- | --- | --- | --- |
-| Exact score | ~11% | 10 | 1.10 |
-| Match result | ~50% | 2 | 1.00 |
-| Total goals | ~55% | 2 | 1.10 |
+| Market       | Rough hit rate | Points | Expected |
+| ------------ | -------------- | ------ | -------- |
+| Exact score  | ~11%           | 10     | 1.10     |
+| Match result | ~50%           | 2      | 1.00     |
+| Total goals  | ~55%           | 2      | 1.10     |
 
 The exact score becomes the high-variance option: rarely right, worth a lot.
 That gives the game a real decision — play safe while leading, swing for exact
@@ -90,6 +90,31 @@ That guarantee moves to the boundary — a zod schema per market in
 This is a deliberate move of an invariant from the storage layer to the
 validation layer, and it is the one place in the project where that happens.
 
+## Void and postponed matches
+
+A bet occupies one of the member's picks for the gameweek, so a match that never
+happens must not silently cost them a slot.
+
+- `CANCELLED` — the bet is voided, its `PredictionScore` row is deleted, and the
+  slot returns to that gameweek's quota.
+- `POSTPONED` — the bet travels with the match to its new date. The slot in the
+  original gameweek is released, and the bet counts against the quota of the
+  gameweek the match moves into, leaving the member two free picks there.
+
+The second rule is the more complex of the two and was chosen deliberately: a
+member who predicted a fixture should still be judged on it when it is finally
+played, and losing a slot in a week they had no control over would feel
+arbitrary.
+
+## The totals line is stored, not hardcoded
+
+`TOTAL_GOALS` stores `{ direction, line }` even though the UI offers only 2.5 in
+v1. Adding 1.5 or 3.5 later then requires no migration.
+
+The line is deliberately fractional: with a whole number the result could land
+exactly on it, which in betting terms is a push, and a binary market has no way
+to express one.
+
 ## Consequences for the scoring engine
 
 The engine becomes a registry of strategies rather than one branching function:
@@ -107,6 +132,26 @@ type MarketStrategy<S> = {
 - Unit tests need no database.
 - Adding a market means adding one file and registering it — no existing code
   changes. Open for extension, closed for modification.
+
+**Point values are an argument, not a module constant.** The engine takes a
+`Ruleset` (a map of market to points) as a parameter. This keeps per-pool rules
+in v2 a matter of passing a different object rather than changing signatures, and
+it lets tests assert hit detection with a flat ruleset instead of re-asserting
+the current balance every time it is tuned.
+
+**An unknown market is skipped, not thrown.** A single unrecognised row must not
+abort scoring for every member of every pool. This can genuinely happen: a
+rolled-back release leaves rows for a market the running code no longer knows,
+and during a deploy the API and the worker are briefly on different versions.
+The runtime therefore logs at `error` level and leaves the prediction unscored.
+
+Forgetting to implement a market is a separate problem and is prevented at
+compile time by an exhaustive `switch` with a `never` check in the `default`
+branch, which fails the build rather than the job.
+
+**Scores are read from `fullTime`.** Stoppage time is already included there.
+Extra time does not occur in league football; if a knockout competition is ever
+added, this decision has to be revisited.
 
 ## Related decision: optional predictions and pick quotas
 
