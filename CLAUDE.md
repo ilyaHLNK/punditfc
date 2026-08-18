@@ -107,6 +107,11 @@ docs/
 ## Conventions
 
 - Code, comments, identifiers and documentation: **English**.
+- **No TypeScript `enum` in application code.** Derive unions from zod schemas
+  in `packages/contracts` instead — one declaration gives both runtime
+  validation and the type, and `const enum` is unusable under
+  `isolatedModules`. Enums in `schema.prisma` are a different thing entirely:
+  those are native PostgreSQL types and are correct there.
 - Discussion with the author: **Russian**.
 - Conventional Commits, enforced by commitlint + husky.
   Example: `feat(predictions): lock submissions after kickoff`
@@ -114,6 +119,23 @@ docs/
   are separate commits, not one dump.
 - Branches: `feat/…`, `fix/…`, `chore/…` → PR into `develop` → `main`.
 - `develop` deploys to staging, `main` deploys to production.
+
+## Keeping this file current — an obligation, not a suggestion
+
+This file is the only thing that carries context between sessions and between
+tools. A stale `CLAUDE.md` is worse than none, because it is trusted.
+
+Before finishing any piece of work, update, in the same commit as the code:
+
+- **Status** — tick what is done, add what appeared.
+- **Current task** — replace it with what comes next and its constraints.
+- **Environment notes** — add anything that cost more than ten minutes to
+  debug. If it surprised you once, it will surprise you again.
+- **Domain vocabulary** — add any new term, so the next session uses the same
+  word.
+
+If a decision was made in conversation and is not written down here or in
+`docs/`, treat it as lost. Write it down before moving on.
 
 ## Working agreement
 
@@ -123,6 +145,30 @@ docs/
   rejected alternative, goes into the table in ADR-0001 before the package is
   installed. A dependency without a recorded reason is a defect.
 - Flag weak spots honestly rather than agreeing by default.
+
+## Current task — read this first
+
+Next up: `packages/contracts` and `packages/scoring`.
+
+`packages/contracts` — shared types and zod schemas for every market selection,
+consumed by both the API and the web app. This is the package that stops the
+client and the server from drifting apart, so it exists before either of them.
+
+`packages/scoring` — the pure scoring engine. Constraints, all already agreed:
+
+- One strategy per market, each a pure function of `(selection, fullTime,
+halfTime)`. No I/O, no Prisma, no clock.
+- Point values arrive as a `Ruleset` argument; `DEFAULT_RULESET` lives in the
+  package but is never read implicitly.
+- v1 implements `EXACT_SCORE` (10), `MATCH_RESULT` (2), `TOTAL_GOALS` (2). The
+  other three exist in the enum only.
+- Exhaustive `switch` with a `never` check; the runtime `default` branch logs and
+  skips rather than throwing.
+- Exhaustive unit tests: every market, 0:0, draws, high scores, the line
+  boundary.
+
+Everything decided about markets, void matches and scoring is in
+`docs/adr/0005-prediction-markets.md`. Read it before writing the engine.
 
 ## Status
 
