@@ -15,20 +15,20 @@ must stay online indefinitely at zero cost.
 
 ## Decision
 
-| Layer | Choice |
-| --- | --- |
-| Frontend | Next.js (App Router) + TypeScript |
-| Styling | Tailwind CSS |
-| Server state | TanStack Query |
-| Forms | React Hook Form + zod |
-| Backend | NestJS + TypeScript |
-| Database | PostgreSQL |
-| ORM | Prisma |
-| Queue | BullMQ on Redis |
-| Cache | Redis |
-| Container | Docker + Docker Compose |
-| CI/CD | GitHub Actions |
-| Repo layout | pnpm workspaces monorepo |
+| Layer        | Choice                            |
+| ------------ | --------------------------------- |
+| Frontend     | Next.js (App Router) + TypeScript |
+| Styling      | Tailwind CSS                      |
+| Server state | TanStack Query                    |
+| Forms        | React Hook Form + zod             |
+| Backend      | NestJS + TypeScript               |
+| Database     | PostgreSQL                        |
+| ORM          | Prisma                            |
+| Queue        | BullMQ on Redis                   |
+| Cache        | Redis                             |
+| Container    | Docker + Docker Compose           |
+| CI/CD        | GitHub Actions                    |
+| Repo layout  | pnpm workspaces monorepo          |
 
 ## Rationale
 
@@ -67,19 +67,23 @@ split stack. Nx or Turborepo would add caching we do not need at this size.
 Every entry here must survive the question "why this and not the simpler
 option?". Nothing enters the repository without an answer.
 
-| Dependency | Chosen because | Rejected alternative |
-| --- | --- | --- |
-| **NestJS** | Opinionated structure a reviewer recognises; dominant in the target market | Express (no structure to defend), Fastify (thinner market signal) |
-| **Prisma** | Types generated from the schema; explicit, reviewable migrations | TypeORM (Active Record leaks persistence into the domain), Drizzle (closer to SQL, smaller ecosystem), raw `pg` (no type safety) |
-| **PostgreSQL** | Relational data, transactions, constraints as invariants | MySQL (weaker types, less common in Node postings), MongoDB (wrong shape for this read model) |
-| **BullMQ** | Job queue with retries, repeatable jobs, rate limiting; Redis already present | `node-cron` in-process (dies with the web process, breaks on scale-out), pg-boss (removes Redis but Redis is needed for cache anyway), RabbitMQ/Kafka (see ADR-0004) |
-| **Redis** | Cache for a rate-limited external API, plus the BullMQ backend | In-memory cache (lost on restart, not shared between instances) |
-| **argon2** | Current recommendation for password hashing; tunable memory cost | bcrypt (fine, but weaker against GPU attacks), plain hashes (unacceptable) |
-| **zod** | One schema validates input and infers the TypeScript type, shared between API and web | class-validator (idiomatic in Nest but decorator-bound and not reusable on the frontend), Joi (no type inference) |
-| **TanStack Query** | Caching, revalidation and request state for server data | `useEffect` + `useState` (reimplements caching badly), Redux Toolkit Query (heavier, and no global client state to justify Redux) |
-| **React Hook Form** | Uncontrolled inputs, few re-renders, integrates with zod | Formik (heavier, re-renders more), hand-rolled forms |
-| **Tailwind** | No naming overhead, no dead CSS, fast iteration solo | CSS Modules (more files, more naming), styled-components (runtime cost, RSC friction), a component library (visual identity would not be the author's) |
-| **pnpm workspaces** | Fast installs, strict dependency resolution, workspace protocol | npm/yarn workspaces (slower, looser), Nx/Turborepo (remote caching this project does not need) |
+| Dependency          | Chosen because                                                                        | Rejected alternative                                                                                                                                                 |
+| ------------------- | ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **NestJS**          | Opinionated structure a reviewer recognises; dominant in the target market            | Express (no structure to defend), Fastify (thinner market signal)                                                                                                    |
+| **Prisma**          | Types generated from the schema; explicit, reviewable migrations                      | TypeORM (Active Record leaks persistence into the domain), Drizzle (closer to SQL, smaller ecosystem), raw `pg` (no type safety)                                     |
+| **PostgreSQL**      | Relational data, transactions, constraints as invariants                              | MySQL (weaker types, less common in Node postings), MongoDB (wrong shape for this read model)                                                                        |
+| **BullMQ**          | Job queue with retries, repeatable jobs, rate limiting; Redis already present         | `node-cron` in-process (dies with the web process, breaks on scale-out), pg-boss (removes Redis but Redis is needed for cache anyway), RabbitMQ/Kafka (see ADR-0004) |
+| **Redis**           | Cache for a rate-limited external API, plus the BullMQ backend                        | In-memory cache (lost on restart, not shared between instances)                                                                                                      |
+| **argon2**          | Current recommendation for password hashing; tunable memory cost                      | bcrypt (fine, but weaker against GPU attacks), plain hashes (unacceptable)                                                                                           |
+| **zod**             | One schema validates input and infers the TypeScript type, shared between API and web | class-validator (idiomatic in Nest but decorator-bound and not reusable on the frontend), Joi (no type inference)                                                    |
+| **TanStack Query**  | Caching, revalidation and request state for server data                               | `useEffect` + `useState` (reimplements caching badly), Redux Toolkit Query (heavier, and no global client state to justify Redux)                                    |
+| **React Hook Form** | Uncontrolled inputs, few re-renders, integrates with zod                              | Formik (heavier, re-renders more), hand-rolled forms                                                                                                                 |
+| **Tailwind**        | No naming overhead, no dead CSS, fast iteration solo                                  | CSS Modules (more files, more naming), styled-components (runtime cost, RSC friction), a component library (visual identity would not be the author's)               |
+| **pnpm workspaces** | Fast installs, strict dependency resolution, workspace protocol                       | npm/yarn workspaces (slower, looser), Nx/Turborepo (remote caching this project does not need)                                                                       |
+| **Vitest**          | One runner for NestJS, Next.js and pure packages; ESM/TS native                       | Jest (NestJS default and more common in postings, but would mean two runners in one monorepo) — see ADR-0007                                                         |
+| **supertest**       | HTTP-level tests against the real Nest application                                    | Calling controllers directly (skips pipes, guards and filters — the parts worth testing)                                                                             |
+| **Testcontainers**  | Real PostgreSQL for tests of constraints, transactions and isolation                  | Mocked repository (asserts our assumptions, not the database), shared test database (drifts, leaks state)                                                            |
+| **Playwright**      | One end-to-end journey through a real browser                                         | Cypress (heavier, weaker parallelism), no e2e at all                                                                                                                 |
 
 State management deserves a note: the application has almost no global client
 state. Nearly everything on screen is server data, which is TanStack Query's
