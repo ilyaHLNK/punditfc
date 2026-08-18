@@ -26,6 +26,7 @@ and explainability matter more than feature count.
 | `docs/adr/0004-background-jobs.md`    | BullMQ, idempotency, rate limits              |
 | `docs/adr/0005-prediction-markets.md` | Markets, binary scoring, no odds              |
 | `docs/adr/0006-repository-layout.md`  | Monorepo vs polyrepo, why not micro-frontends |
+| `docs/adr/0007-testing-strategy.md`   | Vitest, Testcontainers, what gets tested      |
 
 `notes/` holds Russian-language study notes for the author. It is gitignored on
 purpose: the public repository stays English-only, while backend concepts new to

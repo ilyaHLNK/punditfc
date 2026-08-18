@@ -102,6 +102,17 @@ editing existing code.
 - Graceful shutdown: on `SIGTERM` the API stops accepting requests and the
   worker finishes the job in flight before exiting.
 
+### Testing
+
+Strategy and rationale in [ADR-0007](adr/0007-testing-strategy.md).
+
+- Exhaustive unit tests for the scoring engine (no I/O).
+- Integration tests against a real PostgreSQL via Testcontainers for the
+  deadline rule, the pick quota and scoring idempotency.
+- A concurrency test proving the quota holds under parallel requests.
+- HTTP tests for auth and pools via supertest.
+- One Playwright journey: register → join a pool → place a bet → leaderboard.
+
 ### Delivery
 
 - Docker Compose for local development (api, worker, postgres, redis).
