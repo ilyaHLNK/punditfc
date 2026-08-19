@@ -160,6 +160,9 @@ If a decision was made in conversation and is not written down here or in
 - **Announce the plan before writing code.** Before any meaningful block of
   work, state the branch name, the commit split, and the pull request title and
   body. One pull request is one branch.
+- **The author owns the git history.** An assistant prepares the working tree
+  and drafts the commit message; running `git commit`, pushing and opening the
+  pull request are the author's, so no diff enters history unreviewed.
 
 ## Current task — read this first
 
