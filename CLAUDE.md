@@ -27,6 +27,7 @@ and explainability matter more than feature count.
 | `docs/adr/0005-prediction-markets.md` | Markets, binary scoring, no odds              |
 | `docs/adr/0006-repository-layout.md`  | Monorepo vs polyrepo, why not micro-frontends |
 | `docs/adr/0007-testing-strategy.md`   | Vitest, Testcontainers, what gets tested      |
+| `docs/adr/0008-typescript-version.md` | Why TypeScript is pinned below latest         |
 
 `notes/` holds Russian-language study notes for the author. It is gitignored on
 purpose: the public repository stays English-only, while backend concepts new to
@@ -103,6 +104,11 @@ docs/
   Never approve one without a reason.
 - **`.env` is local only.** When `.env.example` changes, `.env` must be updated
   by hand.
+- **TypeScript is pinned to 6.x deliberately.** TypeScript 7 is the native
+  compiler and no longer exports the JavaScript compiler API, so
+  `typescript-eslint` — and with it every type-aware lint rule — cannot run on
+  it. Do not bump it to `latest`; ADR-0008 records the condition that lifts the
+  pin.
 
 ## Conventions
 
@@ -145,6 +151,18 @@ If a decision was made in conversation and is not written down here or in
   rejected alternative, goes into the table in ADR-0001 before the package is
   installed. A dependency without a recorded reason is a defect.
 - Flag weak spots honestly rather than agreeing by default.
+- **Explain backend work in full.** The author is a frontend developer learning
+  the backend through this project. Every backend, database, build-tooling or
+  infrastructure concept is explained properly — what it is, what it affects,
+  what breaks without it, which alternative was rejected — before he is asked to
+  decide anything. Shorthand that assumes accumulated context is not usable, and
+  a Russian note in `notes/` follows the explanation.
+- **Announce the plan before writing code.** Before any meaningful block of
+  work, state the branch name, the commit split, and the pull request title and
+  body. One pull request is one branch.
+- **The author owns the git history.** An assistant prepares the working tree
+  and drafts the commit message; running `git commit`, pushing and opening the
+  pull request are the author's, so no diff enters history unreviewed.
 
 ## Current task — read this first
 

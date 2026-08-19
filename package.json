@@ -10,7 +10,8 @@
   },
   "scripts": {
     "build": "pnpm -r build",
-    "lint": "pnpm -r lint",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "format": "prettier --write . && prisma format",
@@ -26,6 +27,7 @@
   },
   "lint-staged": {
     "*.{ts,tsx,js,mjs,cjs}": [
+      "eslint --fix --max-warnings 0 --no-warn-ignored",
       "prettier --write"
     ],
     "*.{json,md,yml,yaml}": [
@@ -35,12 +37,17 @@
   "devDependencies": {
     "@commitlint/cli": "^21.2.2",
     "@commitlint/config-conventional": "^21.2.2",
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.8.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-simple-import-sort": "^14.0.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.3.0",
     "prettier": "^3.9.6",
     "prisma": "^7.9.1",
     "tsx": "^4.23.12",
-    "typescript": "^7.0.2"
+    "typescript": "6.0.3",
+    "typescript-eslint": "^8.67.0"
   },
   "dependencies": {
     "@prisma/client": "^7.9.1",
