@@ -27,6 +27,7 @@ and explainability matter more than feature count.
 | `docs/adr/0005-prediction-markets.md` | Markets, binary scoring, no odds              |
 | `docs/adr/0006-repository-layout.md`  | Monorepo vs polyrepo, why not micro-frontends |
 | `docs/adr/0007-testing-strategy.md`   | Vitest, Testcontainers, what gets tested      |
+| `docs/adr/0008-typescript-version.md` | Why TypeScript is pinned below latest         |
 
 `notes/` holds Russian-language study notes for the author. It is gitignored on
 purpose: the public repository stays English-only, while backend concepts new to
@@ -103,6 +104,11 @@ docs/
   Never approve one without a reason.
 - **`.env` is local only.** When `.env.example` changes, `.env` must be updated
   by hand.
+- **TypeScript is pinned to 6.x deliberately.** TypeScript 7 is the native
+  compiler and no longer exports the JavaScript compiler API, so
+  `typescript-eslint` — and with it every type-aware lint rule — cannot run on
+  it. Do not bump it to `latest`; ADR-0008 records the condition that lifts the
+  pin.
 
 ## Conventions
 
