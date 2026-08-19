@@ -145,6 +145,15 @@ If a decision was made in conversation and is not written down here or in
   rejected alternative, goes into the table in ADR-0001 before the package is
   installed. A dependency without a recorded reason is a defect.
 - Flag weak spots honestly rather than agreeing by default.
+- **Explain backend work in full.** The author is a frontend developer learning
+  the backend through this project. Every backend, database, build-tooling or
+  infrastructure concept is explained properly — what it is, what it affects,
+  what breaks without it, which alternative was rejected — before he is asked to
+  decide anything. Shorthand that assumes accumulated context is not usable, and
+  a Russian note in `notes/` follows the explanation.
+- **Announce the plan before writing code.** Before any meaningful block of
+  work, state the branch name, the commit split, and the pull request title and
+  body. One pull request is one branch.
 
 ## Current task — read this first
 
