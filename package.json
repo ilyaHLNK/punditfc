@@ -17,6 +17,7 @@
     "format": "prettier --write . && prisma format",
     "format:check": "prettier --check .",
     "format:prisma": "prisma format",
+    "db:validate": "prisma validate",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
