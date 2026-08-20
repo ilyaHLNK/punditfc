@@ -1,6 +1,6 @@
 # Database design notes
 
-Companion to `prisma/schema.prisma`. This file explains *why* the schema looks
+Companion to `prisma/schema.prisma`. This file explains _why_ the schema looks
 the way it does — the questions a reviewer or interviewer is most likely to ask.
 
 ## Entity map
@@ -20,12 +20,12 @@ Pool ──< PoolStanding >── User        (derived aggregate)
 
 ## The invariants that live in the database
 
-| Constraint | Prevents |
-| --- | --- |
+| Constraint                                             | Prevents                                                   |
+| ------------------------------------------------------ | ---------------------------------------------------------- |
 | `UNIQUE (pool_id, user_id, match_id)` on `predictions` | Two concurrent submits creating two bets on the same match |
-| `UNIQUE (pool_id, user_id)` on `pool_memberships` | Joining the same pool twice |
-| `UNIQUE (invite_code)` on `pools` | Ambiguous invite links |
-| `UNIQUE (external_id)` on synced entities | Duplicate rows when a sync job re-runs |
+| `UNIQUE (pool_id, user_id)` on `pool_memberships`      | Joining the same pool twice                                |
+| `UNIQUE (invite_code)` on `pools`                      | Ambiguous invite links                                     |
+| `UNIQUE (external_id)` on synced entities              | Duplicate rows when a sync job re-runs                     |
 
 The first one is the important one. A check-then-insert in application code is a
 race: two requests can both read "no prediction exists" before either writes.
@@ -40,8 +40,8 @@ into an update. Correctness stops depending on timing.
 - Checked inside the same transaction as the write, not before it.
 - The frontend also hides the form after kickoff — that is UX, not security.
 
-Interview question this invites: *"what if the client clocks are wrong, or
-someone calls the API directly?"* The answer is that the client is not part of
+Interview question this invites: _"what if the client clocks are wrong, or
+someone calls the API directly?"_ The answer is that the client is not part of
 the decision at any point.
 
 ## Hiding other members' predictions
@@ -86,15 +86,15 @@ place, running the job twice produces the same result as running it once.
 
 ## Indexes and their justification
 
-| Index | Query it serves |
-| --- | --- |
-| `matches (season_id, matchday)` | Fixture list for a matchday |
-| `matches (status, kickoff_at)` | Sync scheduler, upcoming fixtures |
-| `matches (scoring_status, status)` | Scoring job finding unscored finished matches |
-| `predictions (match_id)` | "All predictions for this match" during scoring |
-| `predictions (pool_id, user_id)` | Personal prediction history |
-| `pool_standings (pool_id, total_points DESC)` | Leaderboard |
-| `pool_memberships (user_id)` | "My pools" |
+| Index                                         | Query it serves                                 |
+| --------------------------------------------- | ----------------------------------------------- |
+| `matches (season_id, matchday)`               | Fixture list for a matchday                     |
+| `matches (status, kickoff_at)`                | Sync scheduler, upcoming fixtures               |
+| `matches (scoring_status, status)`            | Scoring job finding unscored finished matches   |
+| `predictions (match_id)`                      | "All predictions for this match" during scoring |
+| `predictions (pool_id, user_id)`              | Personal prediction history                     |
+| `pool_standings (pool_id, total_points DESC)` | Leaderboard                                     |
+| `pool_memberships (user_id)`                  | "My pools"                                      |
 
 No index was added speculatively; each maps to a query in the scope document.
 
@@ -117,7 +117,7 @@ any code. They need a decision, not a fix to the diagram.
    stops a forecast on a match from a different season. Options: validate in the
    service layer (simple, chosen for now), or denormalise `seasonId` onto
    `Prediction` and use composite foreign keys (airtight, noisier). Documented
-   deliberately — an interviewer asking "what does your schema *not* guarantee?"
+   deliberately — an interviewer asking "what does your schema _not_ guarantee?"
    deserves a real answer.
 2. **Postponed and cancelled matches.** A cancelled match must void its
    predictions rather than score them as misses. The scoring job needs an
