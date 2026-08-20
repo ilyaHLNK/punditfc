@@ -121,9 +121,14 @@ docs/
 - Discussion with the author: **Russian**.
 - Conventional Commits, enforced by commitlint + husky.
   Example: `feat(predictions): lock submissions after kickoff`
+- Pull request descriptions use three `##` sections and nothing else:
+  **What** — what changed, in prose; **Why** — the reason it was done now and
+  the risk it removes; **Notes** — trade-offs, rejected alternatives and
+  follow-ups, as bullets. No checklists, no template boilerplate.
 - Commits are split by logical unit — migration, service, endpoint and tests
   are separate commits, not one dump.
-- Branches: `feat/…`, `fix/…`, `chore/…` → PR into `develop` → `main`.
+- Branches: `feat/…`, `fix/…`, `chore/…`, `docs/…`, `ci/…` → PR into `develop`
+  → `main`.
 - `develop` deploys to staging, `main` deploys to production.
 
 ## Keeping this file current — an obligation, not a suggestion
@@ -160,9 +165,10 @@ If a decision was made in conversation and is not written down here or in
 - **Announce the plan before writing code.** Before any meaningful block of
   work, state the branch name, the commit split, and the pull request title and
   body. One pull request is one branch.
-- **The author owns the git history.** An assistant prepares the working tree
-  and drafts the commit message; running `git commit`, pushing and opening the
-  pull request are the author's, so no diff enters history unreviewed.
+- **The author owns the git history.** He creates the branch; an assistant
+  prepares the working tree and drafts the commit message. Running `git commit`,
+  pushing and opening the pull request are his, so no diff enters history
+  unreviewed and he stays hands-on with git.
 
 ## Current task — read this first
 
