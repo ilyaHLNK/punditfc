@@ -13,8 +13,8 @@ They must be versioned, built and released somehow.
 **Monorepo and micro-frontends are not alternatives to each other.** They answer
 different questions:
 
-- *Monorepo vs polyrepo* — how many git repositories the code lives in.
-- *Micro-frontends vs a single frontend* — whether the UI is split into
+- _Monorepo vs polyrepo_ — how many git repositories the code lives in.
+- _Micro-frontends vs a single frontend_ — whether the UI is split into
   independently built and deployed applications.
 
 The two are orthogonal. Micro-frontends are commonly developed inside a
@@ -34,13 +34,13 @@ A single Next.js frontend. No micro-frontends.
 
 ## Monorepo vs polyrepo
 
-| | Monorepo | Polyrepo |
-| --- | --- | --- |
-| Shared types | Imported directly from `packages/contracts` | Published to a registry, versioned, or duplicated |
+|                 | Monorepo                                              | Polyrepo                                           |
+| --------------- | ----------------------------------------------------- | -------------------------------------------------- |
+| Shared types    | Imported directly from `packages/contracts`           | Published to a registry, versioned, or duplicated  |
 | Contract change | One PR touches API and web together, CI verifies both | Two PRs, temporary drift, breakage between deploys |
-| Onboarding | One clone, one `pnpm install` | Several clones, matching versions by hand |
-| CI | One pipeline, filtered by changed workspace | Several pipelines to keep in sync |
-| Cost | Pipeline must be filtered or it rebuilds everything | Naturally isolated |
+| Onboarding      | One clone, one `pnpm install`                         | Several clones, matching versions by hand          |
+| CI              | One pipeline, filtered by changed workspace           | Several pipelines to keep in sync                  |
+| Cost            | Pipeline must be filtered or it rebuilds everything   | Naturally isolated                                 |
 
 Chosen because the single largest source of bugs in a split stack is drift
 between what the API returns and what the client expects. Sharing zod schemas
@@ -62,7 +62,7 @@ runtime, and a harder debugging story.
 
 This project has one developer and one release cycle. Adopting micro-frontends
 here would add every cost and buy none of the benefit — a textbook case of
-architecture chosen for appearance. Being able to say precisely *when* they
+architecture chosen for appearance. Being able to say precisely _when_ they
 would be justified is worth more in an interview than having used them without
 a reason.
 

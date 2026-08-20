@@ -1,0 +1,71 @@
+# Runs the same checks a developer runs locally, on every pull request.
+#
+# The workflow does not block a merge by itself — that is a branch protection
+# setting on develop and main, made in the repository settings.
+name: CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+  # Pushes to a feature branch are covered by its pull request; running here as
+  # well would verify every commit twice.
+  push:
+    branches: [develop, main]
+
+# A new push makes the run it superseded irrelevant.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# The workflow reads the repository and needs nothing else.
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-latest
+    env:
+      # Nothing in this job connects to a database. Prisma's config calls env()
+      # eagerly and throws when the variable is missing, so `prisma validate`
+      # needs a syntactically valid URL — it never opens a connection to it.
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      # Reads the pnpm version from the packageManager field in package.json,
+      # so CI cannot drift from the version used locally.
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Install Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      # --frozen-lockfile fails when the lockfile disagrees with package.json
+      # instead of quietly resolving a different dependency tree than the one
+      # that was reviewed.
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate the Prisma schema
+        run: pnpm db:validate
+
+      - name: Check formatting
+        run: pnpm format:check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build

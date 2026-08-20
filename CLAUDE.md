@@ -109,6 +109,10 @@ docs/
   `typescript-eslint` — and with it every type-aware lint rule — cannot run on
   it. Do not bump it to `latest`; ADR-0008 records the condition that lifts the
   pin.
+- **CI does not block a merge by itself.** The workflow runs on every pull
+  request, but a red run stops nothing until `develop` and `main` require the
+  `Verify` check under branch protection. That switch lives in the GitHub
+  settings interface, not in the repository.
 
 ## Conventions
 
@@ -211,5 +215,6 @@ Everything decided about markets, void matches and scoring is in
 - [ ] Predictions
 - [ ] Scoring worker
 - [ ] Leaderboard
-- [ ] CI/CD, staging, production
+- [x] CI — lint, typecheck, test and build on every pull request
+- [ ] Staging and production deployment
 - [ ] README and demo seed

@@ -21,12 +21,12 @@ own service. Repeatable jobs handle scheduling.
 
 Jobs:
 
-| Job | Schedule | Purpose |
-| --- | --- | --- |
-| `sync-fixtures` | hourly | Refresh upcoming fixtures and kickoff times |
-| `sync-live-results` | every 5 min, only while matches are in play | Pull final scores |
-| `score-match` | enqueued when a match becomes `FINISHED` | Award points |
-| `deadline-reminder` | hourly | Email members with missing predictions |
+| Job                 | Schedule                                    | Purpose                                     |
+| ------------------- | ------------------------------------------- | ------------------------------------------- |
+| `sync-fixtures`     | hourly                                      | Refresh upcoming fixtures and kickoff times |
+| `sync-live-results` | every 5 min, only while matches are in play | Pull final scores                           |
+| `score-match`       | enqueued when a match becomes `FINISHED`    | Award points                                |
+| `deadline-reminder` | hourly                                      | Email members with missing predictions      |
 
 ## Idempotency
 
