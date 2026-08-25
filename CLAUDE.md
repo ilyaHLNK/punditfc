@@ -109,10 +109,14 @@ docs/
   `typescript-eslint` — and with it every type-aware lint rule — cannot run on
   it. Do not bump it to `latest`; ADR-0008 records the condition that lifts the
   pin.
-- **CI does not block a merge by itself.** The workflow runs on every pull
-  request, but a red run stops nothing until `develop` and `main` require the
-  `Verify` check under branch protection. That switch lives in the GitHub
-  settings interface, not in the repository.
+- **Branch protection is active.** The `protected branches` ruleset requires a
+  pull request into `develop` and `main`, requires the `Verify` check to pass,
+  requires the branch to be up to date, and blocks force pushes and deletions.
+  Its bypass list is empty on purpose, so the rule applies to the owner too: a
+  red pipeline blocks the merge for everyone. An emergency merge is done by
+  switching the ruleset's enforcement status, which is visible in its history —
+  never by adding a bypass. The ruleset lives in the GitHub settings interface,
+  not in the repository, so it does not travel with a clone or a fork.
 
 ## Conventions
 
