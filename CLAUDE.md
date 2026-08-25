@@ -135,6 +135,10 @@ docs/
   follow-ups, as bullets. No checklists, no template boilerplate.
 - Commits are split by logical unit — migration, service, endpoint and tests
   are separate commits, not one dump.
+- Every test is shown failing before it is trusted. After writing one, break the
+  code it covers and confirm it goes red, then restore. A test that has never
+  been red proves only that it runs. ADR-0007 says what deserves a test; this
+  says when a test counts as written.
 - Branches: `feat/…`, `fix/…`, `chore/…`, `docs/…`, `ci/…` → PR into `develop`
   → `main`.
 - `develop` deploys to staging, `main` deploys to production.
@@ -198,24 +202,55 @@ If a decision was made in conversation and is not written down here or in
 
 ## Current task — read this first
 
-Next up: `packages/contracts` and `packages/scoring`.
+`packages/contracts` ships the market schemas. Two pieces of work follow, in
+this order.
 
-`packages/contracts` — shared types and zod schemas for every market selection,
-consumed by both the API and the web app. This is the package that stops the
-client and the server from drifting apart, so it exists before either of them.
+**1. The `selection` shape constraint in PostgreSQL.**
+ADR-0005 moved the shape of `selection` out of the database and into the
+validation layer, and named that the one place in the project where an
+invariant leaves storage. That was too generous: the API is not the only writer
+— the seed script, a backfill, `psql` and a controller that forgets its pipe
+all reach the same column, and a `jsonb` column accepts anything.
 
-`packages/scoring` — the pure scoring engine. Constraints, all already agreed:
+A `CHECK` constraint therefore holds the **shape**: which keys exist, which are
+forbidden, the type of each value, integers, non-negative, the three literal
+outcomes. zod keeps the **product bounds**: at most 20 goals, a line between
+whole numbers. The split is deliberate — shape must never be violated by any
+path, while bounds are rules we may tune, and a tuned rule should answer with a
+readable message rather than a `23514` violation.
 
-- One strategy per market, each a pure function of `(selection, fullTime,
-halfTime)`. No I/O, no Prisma, no clock.
+Prisma cannot express `CHECK` in `schema.prisma`; the migration is created with
+`prisma migrate dev --create-only` and the SQL is written by hand. On a large
+table this is `ADD CONSTRAINT … NOT VALID` followed by `VALIDATE CONSTRAINT`;
+ours is empty, so a plain `ADD CONSTRAINT` is enough. ADR-0005 gets the
+correction in the same pull request.
+
+**2. `packages/scoring` — the pure scoring engine.** Constraints, all agreed:
+
+- One strategy per market, each a pure function of the selection and the score.
+  No I/O, no Prisma, no clock, no logger.
+- The engine returns `{ status: "SCORED", points, isHit }` or
+  `{ status: "SKIPPED", reason }` and never logs. ADR-0005 asks it to log an
+  unknown market at error level, which contradicts the purity the same document
+  requires; the worker logs, because only the worker knows the prediction id,
+  the job and the attempt. ADR-0005 gets this correction too, along with the
+  `points` field its sketch wrongly places inside the strategy.
+- The engine validates `selection` itself, parsing the raw JSON value with the
+  schema from `packages/contracts`. It comes out of a column the database does
+  not constrain in full, so trusting it is how a single bad row kills a job.
 - Point values arrive as a `Ruleset` argument; `DEFAULT_RULESET` lives in the
   package but is never read implicitly.
-- v1 implements `EXACT_SCORE` (10), `MATCH_RESULT` (2), `TOTAL_GOALS` (2). The
-  other three exist in the enum only.
-- Exhaustive `switch` with a `never` check; the runtime `default` branch logs and
-  skips rather than throwing.
-- Exhaustive unit tests: every market, 0:0, draws, high scores, the line
-  boundary.
+- v1 implements `EXACT_SCORE` (10), `MATCH_RESULT` (2), `TOTAL_GOALS` (2).
+- Exhaustive `switch` over the implemented union, enforced by the linter.
+- Void matches stay out of the engine. A `POSTPONED` match needs no code at all:
+  a gameweek is a window over `kickoffAt`, so moving the match moves the bet
+  with it. `CANCELLED` is worker work — delete `PredictionScore`, rebuild
+  `PoolStanding`.
+
+Two decisions still to record when predictions are built: a `Prediction` on a
+cancelled match is kept and excluded from the quota count by status rather than
+deleted, and the quota is checked only when a bet is placed, never retroactively
+when a postponed match lands in a week the member has already filled.
 
 Everything decided about markets, void matches and scoring is in
 `docs/adr/0005-prediction-markets.md`. Read it before writing the engine.
@@ -228,7 +263,8 @@ Everything decided about markets, void matches and scoring is in
 - [x] Repository scaffolding — pnpm workspace, tsconfig, prettier, husky,
       commitlint
 - [x] Docker Compose — postgres on host port **5434**, redis on 6379
-- [ ] `packages/contracts` and `packages/scoring`
+- [x] `packages/contracts` — prediction market schemas
+- [ ] `packages/scoring` — pure scoring engine
 - [ ] NestJS api skeleton with a health endpoint
 - [ ] Next.js web skeleton
 - [ ] Auth
