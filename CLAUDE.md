@@ -138,6 +138,24 @@ docs/
 - Branches: `feat/…`, `fix/…`, `chore/…`, `docs/…`, `ci/…` → PR into `develop`
   → `main`.
 - `develop` deploys to staging, `main` deploys to production.
+- A release is a pull request from `develop` into `main`, titled
+  `release: vX.Y.Z — short summary`. Its description says what changes for the
+  user and how to get back — whether there are migrations and whether they are
+  reversible — rather than how it was implemented.
+- After the merge, `main` is tagged `vX.Y.Z` and the tag carries a GitHub
+  Release with the notes. The tag is the rollback anchor: rolling back means
+  redeploying the previous one. Versions stay in `0.x` until the MVP is live
+  with a README, a demo login and a public URL; that is `v1.0.0`.
+- Releases follow completed vertical slices, roughly weekly. The first one is
+  the empty deployed application, before any feature — a deployment chain first
+  proven on a finished product is proven too late.
+- A hotfix branches from `main`, is merged into `main`, and is then merged back
+  into `develop`. It is the only path that does not go through `develop`, and
+  skipping the merge back means losing the fix at the next release.
+- Generating `CHANGELOG.md` and version bumps from the commit history
+  (release-please) is deliberately deferred until after the MVP. Conventional
+  Commits are already enforced, so adopting it later is configuration rather
+  than a migration.
 
 ## Keeping this file current — an obligation, not a suggestion
 
