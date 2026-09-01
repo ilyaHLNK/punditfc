@@ -246,9 +246,15 @@ model Prediction {
   market  PredictionMarket
 
   // Shape depends on `market` — { homeGoals, awayGoals } for EXACT_SCORE,
-  // { result: "HOME" } for MATCH_RESULT, and so on. Validated by a zod schema
-  // per market in packages/contracts; see ADR-0005 for why this is stored as
-  // JSON rather than as typed columns.
+  // { result: "HOME" } for MATCH_RESULT, and so on. See ADR-0005 for why this
+  // is stored as JSON rather than as typed columns.
+  //
+  // The shape is enforced by the predictions_selection_shape_check constraint,
+  // written by hand in migration 20260901140137. Prisma cannot express CHECK
+  // constraints, so nothing in this file shows that it exists — read that
+  // migration before assuming a jsonb column accepts anything. The product
+  // bounds (at most 20 goals, a line within 0.5 and 9.5) stay in the zod
+  // schemas in packages/contracts.
   selection Json
 
   createdAt DateTime @default(now())
