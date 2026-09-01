@@ -84,11 +84,70 @@ Alternatives considered:
 - **`market` + JSON selection** — chosen. One table, one write path, and adding
   a market touches no existing rows.
 
-The honest trade-off: the database does not guarantee the shape of `selection`.
-That guarantee moves to the boundary — a zod schema per market in
-`packages/contracts`, applied on the API edge and reused by the frontend form.
-This is a deliberate move of an invariant from the storage layer to the
-validation layer, and it is the one place in the project where that happens.
+The trade-off this was originally willing to accept: the database does not
+guarantee the shape of `selection`, so that guarantee moves to the boundary — a
+zod schema per market in `packages/contracts`, applied on the API edge and
+reused by the frontend form.
+
+That was too generous. The next section records the correction.
+
+## Correction: the shape of `selection` is constrained in the database
+
+- **Amended:** 2026-09-01
+
+The paragraph above claimed the shape of `selection` could safely live in the
+validation layer. It cannot, because the API is not the only writer. The seed
+script, a backfill, `psql` during debugging and a controller that forgets its
+validation pipe all reach the same column, and `jsonb` accepts anything at all —
+an object with the wrong keys, a bare number, a string.
+
+Validation in a controller protects that controller. A constraint protects the
+data. A `CHECK` constraint on `predictions` therefore ties the shape of
+`selection` to the value of `market`, and the invariant returns to storage where
+rule 2 in `CLAUDE.md` puts it.
+
+**The split, stated precisely.**
+
+| Layer                       | Rejects                                                                                                        | Because                                                                                    |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `CHECK` in PostgreSQL       | missing or unexpected keys, wrong types, negative or fractional goals, an unknown outcome, a whole totals line | none of these can ever be a valid bet, and no writer may create one                        |
+| zod in `packages/contracts` | more than 20 goals, a line outside 0.5–9.5                                                                     | product decisions we may tune, which deserve a readable message rather than SQLSTATE 23514 |
+
+The whole totals line sits on the database side of that line deliberately. A
+match landing exactly on it is a push, and a binary market has no third state to
+record one — the row would be unanswerable rather than merely generous.
+
+**What it costs.** Adding a market now requires a migration, which the section
+above counted as an advantage of JSON. That is the price of the guarantee, and
+it is small: implementing a market already means writing its zod schema and its
+scoring strategy, so a third file joins the same pull request. No existing rows
+are touched.
+
+**Mechanics worth recording.**
+
+- Prisma cannot express `CHECK` in `schema.prisma`. The SQL is hand-written into
+  an empty migration created with `prisma migrate dev --create-only`. Prisma
+  ignores what it cannot model, so the constraint survives later migrations —
+  verified by re-running `migrate dev` and confirming it proposes nothing.
+- The branches are nested `CASE` expressions, not one `AND` chain. PostgreSQL
+  does not promise to evaluate `AND` operands left to right, and `CASE` never
+  evaluates a branch it does not need — without that, deleting a key from a bare
+  number would raise a type error instead of failing the check.
+- Missing keys must be rejected explicitly with `?` and `?&`. `jsonb_typeof` of
+  an absent key returns NULL rather than a type name, a comparison against NULL
+  yields NULL rather than false, and a `CHECK` whose expression is NULL admits
+  the row. The first version of this constraint accepted `{"homeGoals": 1}` for
+  exactly that reason, and the omission was found by trying it.
+- The table was empty, so the constraint was added in one step. On a populated
+  table this is `ADD CONSTRAINT … NOT VALID` followed by `VALIDATE CONSTRAINT`,
+  which checks existing rows without holding a lock for the length of a scan.
+- A market with no selection schema cannot be written at all: the `ELSE` branch
+  is `false`.
+
+**Not yet tested automatically.** The constraint was verified by hand with 28
+inserts inside a rolled-back transaction. An automated test needs a real
+PostgreSQL, and the Testcontainers harness that ADR-0007 calls for arrives with
+the predictions endpoint, where the deadline and the pick quota need it too.
 
 ## Void and postponed matches
 
