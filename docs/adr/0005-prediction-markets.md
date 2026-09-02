@@ -176,6 +176,9 @@ to express one.
 
 ## Consequences for the scoring engine
 
+- **Amended:** 2026-09-02, when the engine was built. The sketch below is the
+  original one; the corrections that follow are what shipped.
+
 The engine becomes a registry of strategies rather than one branching function:
 
 ```ts
@@ -202,15 +205,52 @@ the current balance every time it is tuned.
 abort scoring for every member of every pool. This can genuinely happen: a
 rolled-back release leaves rows for a market the running code no longer knows,
 and during a deploy the API and the worker are briefly on different versions.
-The runtime therefore logs at `error` level and leaves the prediction unscored.
-
-Forgetting to implement a market is a separate problem and is prevented at
-compile time by an exhaustive `switch` with a `never` check in the `default`
-branch, which fails the build rather than the job.
 
 **Scores are read from `fullTime`.** Stoppage time is already included there.
 Extra time does not occur in league football; if a knockout competition is ever
 added, this decision has to be revisited.
+
+### Corrections made while implementing it
+
+**`points` does not belong on a strategy.** The sketch above places it there and
+the paragraph below it says point values are an argument — both cannot be true.
+The argument wins: a strategy answers "is this bet right?" and nothing else, so
+the balance stays a property of the call rather than of the code.
+
+**The engine does not log.** The original text asked the runtime to log an
+unknown market at `error` level, which contradicts the purity the same section
+requires — logging is I/O. The engine returns
+`{ status: "SKIPPED", reason }` instead, and the worker writes the log line,
+because only the worker holds the prediction id, the job and the attempt. The
+engine could only ever have written "unknown market", which is not a line anyone
+can act on.
+
+The reason is one of three, because they mean different things to whoever is on
+call: `UNKNOWN_MARKET` (version drift), `UNIMPLEMENTED_MARKET` (a row from a
+future release, or a bug in whatever wrote it) and `INVALID_SELECTION` (data
+that no longer matches its schema). A losing bet is not a skip: it is
+`{ status: "SCORED", points: 0, isHit: false }`, because "could not evaluate"
+and "evaluated as wrong" are different facts and only one of them is worth
+storing.
+
+**Exhaustiveness comes from the registry, not from a `switch`.** The original
+text asked for both a registry and an exhaustive `switch` with a `never` check.
+Those are different designs, and the `switch` contradicts the sentence above it:
+adding a market would mean editing an existing function, which is exactly what
+"no existing code changes" rules out. The registry is closed with `satisfies`
+instead — a market listed as implemented but missing from it fails the build,
+naming the missing key. Verified by deleting one: the build failed, no test ran.
+
+**The engine validates `selection` itself.** The `CHECK` constraint added in the
+correction above guarantees the shape of the column, but not the product bounds,
+and a row written by an older release still has to be survivable. The engine
+therefore takes `selection` as `unknown` and parses it with the contract schema.
+`fullTime` is trusted without re-validation: it comes from integer columns the
+database fully constrains.
+
+**The market arrives as a string.** Typing it as the enum would promise
+something the data cannot keep — that is precisely the version-drift case the
+skip exists for.
 
 ## Related decision: optional predictions and pick quotas
 
