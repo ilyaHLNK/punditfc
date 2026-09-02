@@ -58,6 +58,13 @@ jobs:
       - name: Check formatting
         run: pnpm format:check
 
+      # Ahead of the checks that need it. A workspace package is consumed
+      # through its exports map, which points at dist, so linting, typechecking
+      # or testing a package that depends on another one requires that other one
+      # to have been built. pnpm runs recursive scripts in dependency order.
+      - name: Build
+        run: pnpm build
+
       - name: Lint
         run: pnpm lint
 
@@ -66,6 +73,3 @@ jobs:
 
       - name: Test
         run: pnpm test
-
-      - name: Build
-        run: pnpm build

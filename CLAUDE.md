@@ -117,6 +117,13 @@ docs/
   switching the ruleset's enforcement status, which is visible in its history —
   never by adding a bypass. The ruleset lives in the GitHub settings interface,
   not in the repository, so it does not travel with a clone or a fork.
+- **Deleting `dist` by hand does not force a rebuild.** `tsc` keeps its
+  incremental state in `*.tsbuildinfo` beside the tsconfig. With that state
+  intact and the output gone, the next build believes everything is current and
+  emits almost nothing. The symptom appears one package away: the dependent
+  package reports dozens of "type that cannot be resolved" lint errors and
+  `any`-typed imports, because the declarations it reads point at files that
+  were never written. Delete `*.tsbuildinfo` whenever you delete `dist`.
 
 ## Conventions
 
@@ -202,43 +209,57 @@ If a decision was made in conversation and is not written down here or in
 
 ## Current task — read this first
 
-`packages/contracts` ships the market schemas, and the `CHECK` constraint has
-returned the shape of `selection` to PostgreSQL — see the correction section in
-`docs/adr/0005-prediction-markets.md` for the split between what the database
-rejects and what zod rejects.
+Both pure packages are done: `packages/contracts` holds the market schemas, and
+`packages/scoring` scores a bet without touching anything. The corrections made
+while building them are recorded in `docs/adr/0005-prediction-markets.md` — read
+its two amendment sections before changing either package.
 
-Next: **`packages/scoring` — the pure scoring engine.** Constraints, all agreed:
+Next, in this order.
 
-- One strategy per market, each a pure function of the selection and the score.
-  No I/O, no Prisma, no clock, no logger.
-- The engine returns `{ status: "SCORED", points, isHit }` or
-  `{ status: "SKIPPED", reason }` and never logs. ADR-0005 asks it to log an
-  unknown market at error level, which contradicts the purity the same document
-  requires; the worker logs, because only the worker knows the prediction id,
-  the job and the attempt. ADR-0005 gets this correction in that pull request,
-  along with the `points` field its sketch wrongly places inside the strategy.
-- The engine validates `selection` itself, parsing the raw JSON value with the
-  schema from `packages/contracts`. The `CHECK` constraint guarantees the shape,
-  not the product bounds, and a row written by an older release is still a row
-  the engine must survive.
-- Point values arrive as a `Ruleset` argument; `DEFAULT_RULESET` lives in the
-  package but is never read implicitly.
-- v1 implements `EXACT_SCORE` (10), `MATCH_RESULT` (2), `TOTAL_GOALS` (2).
-- Exhaustive `switch` over the implemented union, enforced by the linter rule
-  `switch-exhaustiveness-check`.
-- Void matches stay out of the engine. A `POSTPONED` match needs no code at all:
-  a gameweek is a window over `kickoffAt`, so moving the match moves the bet
-  with it. `CANCELLED` is worker work — delete `PredictionScore`, rebuild
-  `PoolStanding`.
+**1. The ESM spike, then ADR-0009.** Everything so far is ESM, and the api is
+the first place that could refuse it: NestJS is CJS-first, and its CLI, watch
+mode and decorator metadata are where the friction shows. Before writing the
+skeleton, stand up a throwaway Nest module with `"type": "module"` and check
+that `nest start --watch`, dependency injection, decorators and the generated
+Prisma client all survive. Record the result as ADR-0009 either way — including
+the fallback, which is CJS for `apps/api` alone, since Node 24 lets a CommonJS
+process `require()` our ESM packages.
 
-Two decisions still to record when predictions are built: a `Prediction` on a
-cancelled match is kept and excluded from the quota count by status rather than
-deleted, and the quota is checked only when a bet is placed, never retroactively
-when a postponed match lands in a week the member has already filled.
+**2. `apps/api` — NestJS skeleton with a health endpoint.** Small on purpose:
+the point is a deployable process, not features. It is also the first workspace
+that needs `@types/node`, and the home for the type-level check that the market
+list in `packages/contracts` still matches the `PredictionMarket` enum in
+`schema.prisma` — the API is the only place allowed to see both.
 
-One debt carried forward: the `selection` constraint has no automated test. It
-gets one when the Testcontainers harness arrives with the predictions endpoint,
-where the deadline and the quota need the same harness.
+**3. `apps/web` — Next.js skeleton.** Do the UI design pass first: no screen
+inventory, no per-screen states and no visual direction exist anywhere yet.
+Agree the screens, record them in `docs/ui-scope.md`, draft the artboards, and
+turn the agreed palette and spacing into the Tailwind theme — before any
+component is written.
+
+**4. Deploy both skeletons to staging and production.** `docs/scope.md` puts an
+empty deployed application in week one deliberately. Before configuring
+anything, check what the free tiers actually allow and write ADR-0010: Render
+has no free tier for background workers, which decides how the worker runs, and
+a reduced staging with a recorded reason beats two full environments promised
+and quietly not delivered. ADR-0001 currently cites ADR-0005 for "free-tier
+hosting was verified", which is the wrong document and no such verification
+exists — fix that reference in the same pull request.
+
+Debts carried forward, none of them blocking:
+
+- The `selection` shape constraint has no automated test. It gets one when the
+  Testcontainers harness arrives with the predictions endpoint, where the
+  deadline and the pick quota need the same harness.
+- Two decisions to record when predictions are built: a `Prediction` on a
+  cancelled match is kept and excluded from the quota count by status rather
+  than deleted, and the quota is checked only when a bet is placed, never
+  retroactively when a postponed match lands in a week the member has already
+  filled.
+- Workspace packages are consumed through `dist`, so the CI pipeline builds
+  before it lints, typechecks and tests. Resolving to sources instead — project
+  references, or an extra condition in the exports map — would restore the
+  conventional order and is worth doing when the build stops being instant.
 
 ## Status
 
@@ -250,7 +271,7 @@ where the deadline and the quota need the same harness.
       commitlint
 - [x] Docker Compose — postgres on host port **5434**, redis on 6379
 - [x] `packages/contracts` — prediction market schemas
-- [ ] `packages/scoring` — pure scoring engine
+- [x] `packages/scoring` — pure scoring engine
 - [ ] NestJS api skeleton with a health endpoint
 - [ ] Next.js web skeleton
 - [ ] Auth
