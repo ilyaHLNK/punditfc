@@ -28,6 +28,7 @@ and explainability matter more than feature count.
 | `docs/adr/0006-repository-layout.md`  | Monorepo vs polyrepo, why not micro-frontends |
 | `docs/adr/0007-testing-strategy.md`   | Vitest, Testcontainers, what gets tested      |
 | `docs/adr/0008-typescript-version.md` | Why TypeScript is pinned below latest         |
+| `docs/adr/0009-module-system.md`      | ESM everywhere, and what it requires          |
 
 `notes/` holds Russian-language study notes for the author. It is gitignored on
 purpose: the public repository stays English-only, while backend concepts new to
@@ -124,6 +125,15 @@ docs/
   package reports dozens of "type that cannot be resolved" lint errors and
   `any`-typed imports, because the declarations it reads point at files that
   were never written. Delete `*.tsbuildinfo` whenever you delete `dist`.
+- **`@types/node` must be named explicitly** in an application's tsconfig
+  (`"types": ["node"]`). With pnpm's isolated `node_modules`, TypeScript does
+  not find the package on its own, and `console` and `import.meta` come back as
+  unknown identifiers.
+- **The generated Prisma client only works inside a package that declares
+  `"type": "module"`.** It uses `import.meta.url`, and TypeScript picks a file's
+  module format from the nearest `package.json` of the _source_. Generated under
+  the repository root, which declares nothing, it compiles to CommonJS and
+  throws at runtime. Details and the compiler options it needs are in ADR-0009.
 
 ## Conventions
 
@@ -209,35 +219,33 @@ If a decision was made in conversation and is not written down here or in
 
 ## Current task — read this first
 
-Both pure packages are done: `packages/contracts` holds the market schemas, and
-`packages/scoring` scores a bet without touching anything. The corrections made
-while building them are recorded in `docs/adr/0005-prediction-markets.md` — read
-its two amendment sections before changing either package.
+Both pure packages are done, and the module system is settled: ESM everywhere,
+verified with a throwaway NestJS application rather than assumed (ADR-0009).
+Read that ADR before scaffolding the API — it lists the compiler options Nest
+needs and the one that decides whether the Prisma client works at all.
 
 Next, in this order.
 
-**1. The ESM spike, then ADR-0009.** Everything so far is ESM, and the api is
-the first place that could refuse it: NestJS is CJS-first, and its CLI, watch
-mode and decorator metadata are where the friction shows. Before writing the
-skeleton, stand up a throwaway Nest module with `"type": "module"` and check
-that `nest start --watch`, dependency injection, decorators and the generated
-Prisma client all survive. Record the result as ADR-0009 either way — including
-the fallback, which is CJS for `apps/api` alone, since Node 24 lets a CommonJS
-process `require()` our ESM packages.
+**1. `apps/api` — NestJS skeleton with a health endpoint.** Small on purpose:
+the point is a deployable process, not features. The configuration is already
+known from the spike — `"type": "module"`, `experimentalDecorators`,
+`emitDecoratorMetadata`, `"types": ["node"]`, and
+`allowImportingTsExtensions` with `rewriteRelativeImportExtensions` for the
+generated Prisma client. The generator `output` moves out of `prisma/generated`
+and into the application, because a client generated under the repository root
+compiles as CommonJS and throws on `import.meta.url` at runtime.
 
-**2. `apps/api` — NestJS skeleton with a health endpoint.** Small on purpose:
-the point is a deployable process, not features. It is also the first workspace
-that needs `@types/node`, and the home for the type-level check that the market
-list in `packages/contracts` still matches the `PredictionMarket` enum in
+This is also the home for the type-level check that the market list in
+`packages/contracts` still matches the `PredictionMarket` enum in
 `schema.prisma` — the API is the only place allowed to see both.
 
-**3. `apps/web` — Next.js skeleton.** Do the UI design pass first: no screen
+**2. `apps/web` — Next.js skeleton.** Do the UI design pass first: no screen
 inventory, no per-screen states and no visual direction exist anywhere yet.
 Agree the screens, record them in `docs/ui-scope.md`, draft the artboards, and
 turn the agreed palette and spacing into the Tailwind theme — before any
 component is written.
 
-**4. Deploy both skeletons to staging and production.** `docs/scope.md` puts an
+**3. Deploy both skeletons to staging and production.** `docs/scope.md` puts an
 empty deployed application in week one deliberately. Before configuring
 anything, check what the free tiers actually allow and write ADR-0010: Render
 has no free tier for background workers, which decides how the worker runs, and
