@@ -135,6 +135,19 @@ export default tseslint.config(
   },
 
   // ---------------------------------------------------------------------------
+  // Applications.
+  // ---------------------------------------------------------------------------
+  {
+    files: ["apps/**/*.ts"],
+    rules: {
+      // A NestJS module is an empty class carrying a decorator — the framework's
+      // design, not a missed refactoring, and the rule cannot tell the
+      // difference.
+      "@typescript-eslint/no-extraneous-class": "off",
+    },
+  },
+
+  // ---------------------------------------------------------------------------
   // Tooling configuration at the repository root.
   //
   // These files belong to no workspace tsconfig, so type-aware rules cannot run

@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // NestJS resolves constructor arguments from metadata the compiler writes
+    // beside each decorator. Without these two flags dependency injection
+    // silently stops working. They belong here rather than in the base config:
+    // the pure packages must not grow decorators. See ADR-0009.
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    // pnpm keeps node_modules isolated, and TypeScript does not find the Node
+    // types on its own from here. Without this, `console` is an unknown name.
+    "types": ["node"],
+    "noEmit": true
+  },
+  "include": ["src", "vitest.config.ts"]
+}
